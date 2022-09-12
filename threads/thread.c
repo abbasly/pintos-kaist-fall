@@ -40,6 +40,9 @@ static struct lock tid_lock;
 /* Thread destruction requests */
 static struct list destruction_req;
 
+// Blocked list
+static struct list blocked_list;
+
 /* Statistics. */
 static long long idle_ticks;    /* # of timer ticks spent idle. */
 static long long kernel_ticks;  /* # of timer ticks in kernel threads. */
@@ -109,6 +112,7 @@ thread_init (void) {
 	lock_init (&tid_lock);
 	list_init (&ready_list);
 	list_init (&destruction_req);
+	list_init (&blocked_list);
 
 	/* Set up a thread structure for the running thread. */
 	initial_thread = running_thread ();
@@ -255,6 +259,46 @@ thread_unblock (struct thread *t) {
 	list_insert_ordered(&ready_list, &t->elem, thread_prio_compare, NULL);
 	t->status = THREAD_READY;
 	intr_set_level (old_level);
+}
+
+void
+thread_sleep(int64_t tick) 
+{
+	struct thread *curr = thread_current();
+	/* Idle Thread is not to be slept */
+	ASSERT(curr != idle_thread);
+
+	enum intr_level old_level;
+
+	old_level = intr_disable();
+	curr->wakeup_tick = tick;
+	list_insert_ordered(&blocked_list, &curr->elem, thread_wakeup_tick_compare, NULL);
+	thread_block();
+	intr_set_level(old_level);
+}
+
+void
+thread_wakeup(int64_t curr_ticks) 
+{
+	struct list_elem *it = list_begin(&blocked_list);
+	while(it != list_end(&blocked_list))
+	{
+		struct thread *curr_thread = list_entry(it, struct thread, elem);
+		int64_t wakeup_tick = curr_thread->wakeup_tick;
+		if(curr_ticks < wakeup_tick) break;
+		it = list_remove(it);
+		thread_unblock(curr_thread);
+	}
+}
+
+// Helper function to compare the ticks
+bool 
+thread_wakeup_tick_compare(const struct list_elem *elem1,
+													 const struct list_elem *elem2, void *aux UNUSED)
+{
+	const int64_t tick1 = list_entry(elem1, struct thread, elem)->wakeup_tick;
+	const int64_t tick2 = list_entry(elem2, struct thread, elem)->wakeup_tick;
+	return tick1 < tick2;
 }
 
 /* Returns the name of the running thread. */

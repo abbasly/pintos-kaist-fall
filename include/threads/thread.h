@@ -91,6 +91,7 @@ struct thread {
 	enum thread_status status;          /* Thread state. */
 	char name[16];                      /* Name (for debugging purposes). */
 	int priority;                       /* Priority. */
+	int64_t wakeup_tick;                // wake up tick for the thread
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
@@ -145,5 +146,10 @@ void do_iret (struct intr_frame *tf);
 
 // compare priority
 bool thread_prio_compare(const struct list_elem *a, const struct list_elem *b, void *aux);
+// compare wake up tick
+bool thread_wakeup_tick_compare(const struct list_elem *elem1, const struct list_elem *elem2, void *aux UNUSED);
+
+void thread_sleep(int64_t tick);
+void thread_wakeup(int64_t tick);
 
 #endif /* threads/thread.h */
