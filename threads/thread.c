@@ -210,7 +210,10 @@ thread_create (const char *name, int priority,
 
 	/* Add to run queue. */
 	thread_unblock (t);
-
+	if(t->priority > thread_current()->priority) 
+	{
+		thread_yield();
+	}
 	return tid;
 }
 
@@ -222,7 +225,7 @@ thread_prio_compare(const struct list_elem *elem1,
 	const int prio2 = list_entry(elem2, struct thread, elem)->priority;
 	/* Since scheduler pull out the front one, newly inserted one
 	 * should be back of the same priority ones for round-robin*/
-	return prio1 >= prio2;
+	return prio1 > prio2;
 }
 
 /* Puts the current thread to sleep.  It will not be scheduled
@@ -368,7 +371,13 @@ thread_yield (void) {
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) {
+	struct thread *first_thread = NULL;
+	if(!list_empty(&ready_list)) 
+		first_thread = list_entry(list_begin(&ready_list), struct thread, elem);
 	thread_current ()->priority = new_priority;
+	if(first_thread != NULL && 
+			first_thread->priority > new_priority)
+		thread_yield();
 }
 
 /* Returns the current thread's priority. */
