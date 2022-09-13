@@ -194,7 +194,15 @@ lock_acquire (struct lock *lock) {
 	ASSERT (!intr_context ());
 	ASSERT (!lock_held_by_current_thread (lock));
 
+	struct thread* cur = thread_current();
+	if(lock->holder){
+		cur->wait_on_lock = lock;
+		list_insert_ordered (&lock->holder->donations, &cur->donation_elem, 
+    			thread_compare_donate_priority, 0);
+		donate_priority();
+	}
 	sema_down (&lock->semaphore);
+	cur->wait_on_lock = NULL;
 	lock->holder = thread_current ();
 }
 
@@ -228,6 +236,8 @@ lock_release (struct lock *lock) {
 	ASSERT (lock != NULL);
 	ASSERT (lock_held_by_current_thread (lock));
 
+	remove_with_lock (lock);
+ 	refresh_priority ();
 	lock->holder = NULL;
 	sema_up (&lock->semaphore);
 }
@@ -330,10 +340,33 @@ cond_broadcast (struct condition *cond, struct lock *lock) {
 		cond_signal (cond, lock);
 }
 
+void
+donate_priority (void)
+{
+  int depth;
+  struct thread *cur = thread_current ();
+
+  for (depth = 0; depth < 8; depth++){
+    if (!cur->wait_on_lock) break;
+      struct thread *holder = cur->wait_on_lock->holder;
+      holder->priority = cur->priority;
+      cur = holder;
+  }
+}
+
+
 bool
 sema_priority_compare(const struct list_elem *a, const struct list_elem *b, void *aux) 
 {
 	const struct semaphore_elem *sa = list_entry(a, struct semaphore_elem, elem);
 	const struct semaphore_elem *sb = list_entry(b, struct semaphore_elem, elem);
 	return sa->semaphore.priority > sb->semaphore.priority;
+}
+
+bool
+thread_compare_donate_priority (const struct list_elem *l, 
+				const struct list_elem *s, void *aux UNUSED)
+{
+	return list_entry (l, struct thread, donation_elem)->priority
+		 > list_entry (s, struct thread, donation_elem)->priority;
 }
