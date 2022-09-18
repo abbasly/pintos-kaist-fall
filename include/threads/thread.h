@@ -103,6 +103,11 @@ struct thread {
 	struct list donations;
 	struct list_elem donation_elem;
 
+	/*For MLFQ*/
+	struct list_elem all_elem;
+	int nice;
+	int recent_cpu;
+
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4;                     /* Page map level 4 */
@@ -158,5 +163,10 @@ bool thread_wakeup_tick_compare(const struct list_elem *elem1, const struct list
 
 void thread_sleep(int64_t tick);
 void thread_wakeup(int64_t tick);
+
+// MLFQ functions
+void mlfqs_calculate_priority (struct thread *t);
+void mlfqs_calculate_recent_cpu (struct thread *t);
+void mlfqs_calculate_load_avg (void);
 
 #endif /* threads/thread.h */
